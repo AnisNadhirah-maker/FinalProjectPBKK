@@ -16,7 +16,7 @@ It’s built using the **Gin framework** for routing and **GORM** for database o
 ---
 
 ## **Video Demonstration**
-
+link: https://youtu.be/s2OVPWUTf4A?feature=shared
 ### **What the System Can Do:**  
 - **Manage Organizations:**  
   - Add new organizations.  
