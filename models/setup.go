@@ -1,8 +1,6 @@
 package models
 
 import (
-	"time"
-
 	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -21,15 +19,7 @@ func ConnectDatabase() {
 
 // DBMigrate runs the database migrations
 func DBMigrate() {
-	DB.AutoMigrate(
-		&Donor{
-		ID:        0,
-		Name:      "",
-		Email:     "",
-		CreatedAt: time.Time{},
-		UpdatedAt: time.Time{},
-	},
-		&Organization{},
-		&Donation{},
-	)
+	DB.AutoMigrate(&Donor{}, &Organization{},&Donation{},
+	)	
 }
+

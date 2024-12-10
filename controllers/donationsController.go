@@ -4,80 +4,157 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
+
+	"charity_system/models"
 
 	"github.com/gin-gonic/gin"
-	"charity_system/models"
 )
 
-// ListDonations retrieves and displays all donations along with associated donors and organizations
+// List Donations
 func ListDonations(c *gin.Context) {
-	var donations []models.Donation
+	// Fetch donation records, donors, and organizations
+	rows, err := models.DB.Raw(`
+		SELECT d.id, d.amount, d.donation_date, don.name AS donor_name, org.name AS organization_name
+		FROM donations d
+		JOIN donors don ON d.donor_id = don.id
+		JOIN organizations org ON d.organization_id = org.id
+	`).Rows()
 
-	// Fetch donations with associated donors and organizations
-	if err := models.DB.Preload("Donor").Preload("Organization").Find(&donations).Error; err != nil {
-		log.Println("Error retrieving donations:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch donations."})
+	if err != nil {
+		log.Printf("Error fetching donations: %v", err)
+		c.HTML(http.StatusInternalServerError, "donations.html", gin.H{
+			"error": "Failed to load donations.",
+		})
+		return
+	}
+	defer rows.Close()
+
+	var donations []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var amount float64
+		var donationDate, donorName, organizationName string
+		if err := rows.Scan(&id, &amount, &donationDate, &donorName, &organizationName); err != nil {
+			log.Printf("Error scanning donation: %v", err)
+			continue
+		}
+
+		// Format the donation date (Optional: you can change the format)
+		donationDateTime, err := time.Parse("2006-01-02", donationDate)
+		if err != nil {
+			log.Printf("Error parsing date: %v", err)
+		}
+		formattedDate := donationDateTime.Format("January 2, 2006")
+
+		donations = append(donations, map[string]interface{}{
+			"id":                id,
+			"amount":            amount,
+			"donation_date":     formattedDate,
+			"donor_name":        donorName,
+			"organization_name": organizationName,
+		})
+	}
+
+	// Fetch donors and organizations
+	donorsRows, err := models.DB.Raw("SELECT id, name FROM donors").Rows()
+	if err != nil {
+		log.Printf("Error fetching donors: %v", err)
+		c.HTML(http.StatusInternalServerError, "donations.html", gin.H{
+			"error": "Failed to load donors.",
+		})
+		return
+	}
+	defer donorsRows.Close()
+
+	var donors []map[string]interface{}
+	for donorsRows.Next() {
+		var id int
+		var name string
+		if err := donorsRows.Scan(&id, &name); err != nil {
+			log.Printf("Error scanning donor: %v", err)
+			continue
+		}
+		donors = append(donors, map[string]interface{}{
+			"id":   id,
+			"name": name,
+		})
+	}
+
+	organizationsRows, err := models.DB.Raw("SELECT id, name FROM organizations").Rows()
+	if err != nil {
+		log.Printf("Error fetching organizations: %v", err)
+		c.HTML(http.StatusInternalServerError, "donations.html", gin.H{
+			"error": "Failed to load organizations.",
+		})
+		return
+	}
+	defer organizationsRows.Close()
+
+	var organizations []map[string]interface{}
+	for organizationsRows.Next() {
+		var id int
+		var name string
+		if err := organizationsRows.Scan(&id, &name); err != nil {
+			log.Printf("Error scanning organization: %v", err)
+			continue
+		}
+		organizations = append(organizations, map[string]interface{}{
+			"id":   id,
+			"name": name,
+		})
+	}
+
+	// Pass data to the template
+	c.HTML(http.StatusOK, "donations.html", gin.H{
+		"donations":     donations,
+		"donors":        donors,
+		"organizations": organizations,
+	})
+}
+
+// Assign Donation Handler
+func AssignDonation(c *gin.Context) {
+	// Get the form data and validate inputs
+	amountStr := c.PostForm("amount")
+	amount, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil || amount <= 0 {
+		log.Printf("Invalid amount: %v", err)
+		c.HTML(http.StatusBadRequest, "donations.html", gin.H{
+			"error": "Please enter a valid donation amount.",
+		})
 		return
 	}
 
-	// Prepare donations for rendering
-	donationData := make([]map[string]interface{}, len(donations))
-	for i, donation := range donations {
-		donationData[i] = map[string]interface{}{
-			"id":            donation.ID,
-			"amount":        donation.Amount,
-			"donation_date": donation.DonationDate.Format("2006-01-02"),
-			"donor_name":    donation.Donor.Name,
-			"organization":  donation.Organization.Name,
-		}
+	donorID, err := strconv.Atoi(c.PostForm("donor_id"))
+	if err != nil || donorID <= 0 {
+		log.Printf("Invalid donor ID: %v", err)
+		c.HTML(http.StatusBadRequest, "donations.html", gin.H{
+			"error": "Invalid donor selected.",
+		})
+		return
 	}
 
-	// Render the donations.html template with the data
-	c.HTML(http.StatusOK, "donations.html", gin.H{"donations": donationData})
-}
+	organizationID, err := strconv.Atoi(c.PostForm("organization_id"))
+	if err != nil || organizationID <= 0 {
+		log.Printf("Invalid organization ID: %v", err)
+		c.HTML(http.StatusBadRequest, "donations.html", gin.H{
+			"error": "Invalid organization selected.",
+		})
+		return
+	}
 
-func AssignDonation(c *gin.Context) {
-    // Parse donation_id, donor_id, and organization_id from form data
-    donationID, err := strconv.Atoi(c.PostForm("donation_id"))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid donation ID"})
-        return
-    }
-    donorID, err := strconv.Atoi(c.PostForm("donor_id"))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid donor ID"})
-        return
-    }
-    organizationID, err := strconv.Atoi(c.PostForm("organization_id"))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID"})
-        return
-    }
+	// Insert the donation into the database
+	donationDate := time.Now()
+	err = models.DB.Exec("INSERT INTO donations (amount, donor_id, organization_id, donation_date) VALUES (?, ?, ?, ?)", amount, donorID, organizationID, donationDate).Error
+	if err != nil {
+		log.Printf("Error inserting donation: %v", err)
+		c.HTML(http.StatusInternalServerError, "donations.html", gin.H{
+			"error": "Failed to assign the donation.",
+		})
+		return
+	}
 
-    // Fetch the donation record
-    var donation models.Donation
-    if err := models.DB.First(&donation, donationID).Error; err != nil {
-        log.Println("Error retrieving donation record:", err)
-        c.JSON(http.StatusNotFound, gin.H{"error": "Donation not found"})
-        return
-    }
-
-    // Update the donation record
-    donation.DonorID = uint(donorID)
-    donation.OrganizationID = uint(organizationID)
-    if err := models.DB.Save(&donation).Error; err != nil {
-        log.Println("Error updating donation:", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign donation"})
-        return
-    }
-
-    // Update donor status
-    if err := models.DB.Model(&models.Donor{}).Where("id = ?", donorID).Update("status", "Assigned").Error; err != nil {
-        log.Println("Error updating donor status:", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update donor status"})
-        return
-    }
-
-    // Redirect to donations page
-    c.Redirect(http.StatusSeeOther, "/donations")
+	// Redirect to the donation list page after adding the donation
+	c.Redirect(http.StatusSeeOther, "/donations")
 }
