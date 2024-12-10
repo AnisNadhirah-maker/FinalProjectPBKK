@@ -30,17 +30,19 @@ func main() {
 	r.GET("/", homePage)
 
 	// Donor routes
-	r.GET("/donors", controllers.ListDonors) 
+	r.GET("/donors", controllers.ListDonors)
 	r.POST("/donors/add", controllers.AddDonor)
-	r.DELETE("/donors/:id", controllers.DeleteDonor)  // Changed to DELETE
+	r.POST("/donors/:id", controllers.DeleteDonor)
+	r.GET("/donors/:id", controllers.DeleteDonor)
 
 	// Organization routes
-	r.GET("/organizations", controllers.ListOrganizations)           
-	r.POST("/organizations/add", controllers.AddOrganization)        
-	r.DELETE("/organizations/:id", controllers.DeleteOrganization)  // Changed to DELETE
+	r.GET("/organizations", controllers.ListOrganizations)
+	r.POST("/organizations/add", controllers.AddOrganization)
+	r.POST("/organizations/:id", controllers.DeleteOrganization)
+	r.GET("/organizations/:id", controllers.DeleteOrganization)
 
 	// Donation routes
-	r.GET("/donations", controllers.ListDonations)                    
+	r.GET("/donations", controllers.ListDonations)
 	r.POST("/donations/assign", controllers.AssignDonation)
 
 	// Start the server
