@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donation Records</title>
+
+    <!-- Font Awesome CDN link -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <!-- Custom stylesheet -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Header section -->
+    <header>
+        <input type="checkbox" id="toggler">
+        <label for="toggler" class="fas fa-bars"></label>
+
+        <a href="/" class="logo">DonationBridge<span>.</span></a>
+        <nav class="navbar">
+            <a href="/">Home</a>
+            <a href="/organizations">Organizations</a>
+            <a href="/donors">Donors</a>
+            <a href="/donations">Donations</a>
+        </nav>
+    </header>
+
+    <div class="hero">
+        <!-- Add Donation Form -->
+        <h2>Add Donation</h2>
+        <form action="/donations/assign" method="POST">
+            <label for="amount" class="form-label">Amount (USD):</label>
+            <input 
+                type="number" 
+                id="amount" 
+                name="amount" 
+                min="10" 
+                required 
+                step="10" 
+                placeholder="Enter donation amount" 
+                title="Enter a valid amount">
+
+            <label for="donation_date" class="form-label">Donation Date:</label>
+            <input 
+                type="date" 
+                id="donation_date" 
+                name="donation_date" 
+                required 
+                title="Select a valid date">
+
+            <label for="donor_id" class="form-label">Donor:</label>
+            <select id="donor_id" name="donor_id" required>
+                <option value="" disabled selected>Select a donor</option>
+                {{ range .donors }}
+                <option value="{{ .id }}">{{ .name }} ({{ .email }})</option>
+                {{ end }}
+            </select>
+
+            <label for="organization_id" >Organization:</label>
+            <select id="organization_id" name="organization_id" required>
+                <option value="" disabled selected>Select an organization</option>
+                {{ range .organizations }}
+                <option value="{{ .id }}">{{ .name }}</option>
+                {{ end }}
+            </select>
+
+            <button type="submit">Add Donation</button>
+        </form>
+
+        <!-- Donation Records -->
+        <h2>Donation Records</h2>
+        {{ if .donations }}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Amount (USD)</th>
+                    <th>Donation Date</th>
+                    <th>Donor</th>
+                    <th>Organization</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .donations }}
+                <tr>
+                    <td>{{ .id }}</td>
+                    <td>{{ .amount }}</td>
+                    <td>{{ .donation_date }}</td>
+                    <td>{{ .donor.name }}</td>
+                    <td>{{ .organization.name }}</td>
+                    <td>
+                        <a href="/donations/edit/{{ .id }}" class="btn-edit">Edit</a>
+                        <a href="/donations/delete/{{ .id }}" class="btn-delete">Delete</a>
+                    </td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+        {{ else }}
+        <p>No donations found.</p>
+        {{ end }}
+    </div>
+</body>
+</html>
